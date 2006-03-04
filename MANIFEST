@@ -1,0 +1,12 @@
+Changes
+lib/Net/Yadis/Discovery.pm
+lib/Net/Yadis/Object.pm
+Makefile.PL
+MANIFEST
+t/00_use.t
+t/01_object.t
+t/02_protocol.t
+t/03_discovery.t
+t/04_html_parse.t
+t/lib/URI/Fetch.pm
+META.yml                                 Module meta-data (added by MakeMaker)
