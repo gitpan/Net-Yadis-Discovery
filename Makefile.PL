@@ -5,6 +5,7 @@ WriteMakefile(
     PREREQ_PM         => {
                             'URI::Fetch' => 0.02,
                             'XML::Simple' => 0,
+                            'Module::Pluggable::Fast' => 0,
                          },
     ($] >= 5.005 ?     
       (ABSTRACT_FROM  => 'lib/Net/Yadis/Discovery.pm', 

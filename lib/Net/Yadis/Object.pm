@@ -25,7 +25,7 @@ Net::Yadis::Object - a class of Yadis Resourse Descriptor's Service Object
 
   use Net::Yadis::Discovery;
   my $disc = Net::Yadis::Discovery->new();
-  my @xrd = $disc->parse_uri("http://id.example.com/") or Carp::croak($disc->err);
+  my @xrd = $disc->discover("http://id.example.com/") or Carp::croak($disc->err);
 
   foreach my $srv (@xrd) {         # Loop for Each Service in Yadis Resourse Descriptor
     print $srv->priority;          # Service priority (sorted)

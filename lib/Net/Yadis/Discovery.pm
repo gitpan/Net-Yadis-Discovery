@@ -3,11 +3,14 @@ package Net::Yadis::Discovery;
 use strict;
 use warnings;
 use vars qw($VERSION);
-$VERSION = "0.01";
+$VERSION = "0.02";
 
 use Carp ();
 use URI::Fetch 0.02;
 use XML::Simple;
+use Module::Pluggable::Fast
+    search => [ 'Net::Yadis::Discovery::Protocol' ],
+    callback => sub { };
 use Net::Yadis::Object;
 
 use fields (
@@ -33,6 +36,7 @@ sub new {
 
     Carp::croak("Unknown options: " . join(", ", keys %opts)) if %opts;
 
+    $self->plugins;
     return $self;
 }
 
@@ -140,7 +144,9 @@ sub _get_contents {
     return 1;
 }
 
-sub parse_uri {
+sub parse_uri { shift->discover(@_) }
+
+sub discover {
     my $self = shift;
     my $url = shift or return $self->_fail("empty_url");
     my $count = shift || 0;                              # $count = 0:HEAD request 1:GET request 2:XRDS request
@@ -191,6 +197,7 @@ sub parse_xrd {
         bless $service, "Net::Yadis::Object";
         $service->{'Type'} or next;
         $service->{'URI'} ||= $self->identity_url;
+
         foreach my $sname (keys %$service) {
             foreach my $ns (keys %xmlns) {
                 $service->{"{$xmlns{$ns}}$1"} = delete $service->{$sname} if ($sname =~ /^${ns}:(.+)$/);
@@ -201,10 +208,26 @@ sub parse_xrd {
     }
     my @service = sort {$a->{'priority'} <=> $b->{'priority'}} @priority;
     push (@service,@nopriority);
+    foreach (grep {/^_protocol/} keys %$self) { delete $self->{$_} }
+
     $self->xrd_objects(\@service);
 }
 
 sub _pack_array { wantarray ? ref($_[0]) eq 'ARRAY' ? @{$_[0]} : ($_[0]) : $_[0] }
+
+sub search_protocol {
+    my $self = shift;
+    my $prot_regex = shift;
+    my $version = shift;
+    return $self->_fail("not_discovered_yet") unless $self->xrd_objects;
+
+    my $ver_regex = $version ? '('.join('|',map { $_ =~ s/\./\\./g; $_ } _pack_array($version)).')' : '.+';
+    $prot_regex =~ s/\[version\]/$ver_regex/;
+
+    my @search = grep {join(",",$_->Type) =~ /$prot_regex/} @{$self->xrd_objects};
+
+    return wantarray ? @search : \@search;
+}
 
 package Net::Yadis::Discovery::UA;
 
@@ -263,7 +286,7 @@ Net::Yadis::Discovery - Perl extension for discovering Yadis document from Yadis
                                          cache => $cache  # Cache object
                                      );
 
-  my $xrd = $disc->parse_uri("http://id.example.com/") or Carp::croak($disc->err);
+  my $xrd = $disc->discover("http://id.example.com/") or Carp::croak($disc->err);
 
   print $disc->identity_url;       # Yadis URL (Final URL if redirected )
   print $disc->xrd_url;            # Yadis Resourse Descriptor URL
@@ -328,7 +351,7 @@ The $cache object can be anything that has a -E<gt>get($key) and
 information.  This cache object is just passed to L<URI::Fetch>
 directly.
 
-=item $disc->B<parse_uri>($url)
+=item $disc->B<discover>($url)
 
 Given a user-entered $url (which could be missing http://, or have
 extra whitespace, etc), returns either array/array ref of Net::Yadis::Object
@@ -358,7 +381,7 @@ codes (from $csr->B<errcode>) to decide what to present to the user:
 =item $disc->B<xrd_objects>
 
 Returns array/array ref of Net::Yadis::Object objects.
-It is same what could be got by parse_uri method.
+It is same what could be got by discover method.
 
 =item $disc->B<identity_url>
 

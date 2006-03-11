@@ -1,2 +1,8 @@
+0.02:
+        * API interface change to prpposal API interface, making two changes showing below:
+
+        * Change method name of parse_uri to discover.
+        * Add Plugin module to add openid_servers and lid_servers methods.
+
 0.01:
 	* first release
