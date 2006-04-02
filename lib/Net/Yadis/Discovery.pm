@@ -2,9 +2,10 @@ package Net::Yadis::Discovery;
 
 use strict;
 use warnings;
-use vars qw($VERSION);
-$VERSION = "0.02";
+use vars qw($VERSION @EXPORT);
+$VERSION = "0.03";
 
+use base qw(Exporter);
 use Carp ();
 use URI::Fetch 0.02;
 use XML::Simple;
@@ -12,6 +13,14 @@ use Module::Pluggable::Fast
     search => [ 'Net::Yadis::Discovery::Protocol' ],
     callback => sub { };
 use Net::Yadis::Object;
+
+@EXPORT = qw(YR_HEAD YR_GET YR_XRDS);
+
+use constant {
+    YR_HEAD => 0,
+    YR_GET => 1,
+    YR_XRDS => 2,
+};
 
 use fields (
             'cache',           # the Cache object sent to URI::Fetch
@@ -144,12 +153,10 @@ sub _get_contents {
     return 1;
 }
 
-sub parse_uri { shift->discover(@_) }
-
 sub discover {
     my $self = shift;
     my $url = shift or return $self->_fail("empty_url");
-    my $count = shift || 0;                              # $count = 0:HEAD request 1:GET request 2:XRDS request
+    my $count = shift || YR_HEAD;                              # $count = YR_HEAD:HEAD request YR_GET:GET request YR_XRDS:XRDS request
     Carp::croak("Too many parameters") if @_;
 
     # trim whitespace
@@ -160,23 +167,23 @@ sub discover {
     my $final_url;
     my %headers;
 
-    $self->_ua->force_head(1) if ($count == 0);
+    $self->_ua->force_head(1) if ($count == YR_HEAD);
 
     my $xrd;
     $self->_get_contents($url, \$final_url, \$xrd, \%headers) or return;
 
-    $self->identity_url($final_url) if ($count < 2);
+    $self->identity_url($final_url) if ($count < YR_XRDS);
 
     my $doc_url;
-    if (($doc_url = $headers{'x-yadis-location'} || $headers{'x-xrds-location'}) && ($count < 2)) {
-        return $self->parse_uri($doc_url,2);
+    if (($doc_url = $headers{'x-yadis-location'} || $headers{'x-xrds-location'}) && ($count < YR_XRDS)) {
+        return $self->discover($doc_url,YR_XRDS);
     } elsif ($headers{'content-type'} eq 'application/xrds+xml') {
-        return $self->parse_uri($final_url,2) if ((!$xrd) && ($count == 0));
+        return $self->discover($final_url,YR_XRDS) if ((!$xrd) && ($count == YR_HEAD));
         $self->xrd_url($final_url);
         return $self->parse_xrd($xrd);
     }
 
-    return $count == 0 ? $self->parse_uri($final_url,1) : $self->_fail($count == 1 ? "no_yadis_document" :"too_many_hops");
+    return $count == YR_HEAD ? $self->discover($final_url,YR_GET) : $self->_fail($count == YR_GET ? "no_yadis_document" :"too_many_hops");
 }
 
 sub parse_xrd {
@@ -237,13 +244,18 @@ package Net::Yadis::Discovery::UA;
 use strict;
 use warnings;
 use LWP::UserAgent;
-use vars qw($AUTOLOAD);
+use vars qw($AUTOLOAD $lwpclass);
+
+BEGIN {
+    eval "use LWPx::ParanoidAgent;";
+    $lwpclass = $@ ? "LWP::UserAgent" : "LWPx::ParanoidAgent";
+}
 
 sub new {
     my $class = shift;
     my $ua = shift; 
     unless ($ua) {
-        $ua = LWP::UserAgent->new;
+        $ua = $lwpclass->new;
         $ua->timeout(10);
     }
     bless {ua => $ua,force_head => 0},$class;
@@ -326,6 +338,29 @@ method descriptions below.
 
 =back
 
+=head1 EXPORT
+
+This module exports three constant values to use with discover method.
+
+=over 4
+
+=item C<YR_HEAD>
+
+If you set this value to option argument of discover method, module check Yadis 
+URL start from HTTP HEAD request.
+
+=item C<YR_GET>
+
+If you set this, module check Yadis URL start from HTTP GET request.
+
+=item C<YR_XRDS>
+
+If you set this, this module consider Yadis URL as Yadis Resource Descriptor 
+URL.
+If not so, error returns.
+
+=back
+
 =head1 METHODS
 
 =over 4
@@ -351,11 +386,15 @@ The $cache object can be anything that has a -E<gt>get($key) and
 information.  This cache object is just passed to L<URI::Fetch>
 directly.
 
-=item $disc->B<discover>($url)
+=item $disc->B<discover>($url,[$request_method])
 
 Given a user-entered $url (which could be missing http://, or have
 extra whitespace, etc), returns either array/array ref of Net::Yadis::Object
 objects, or undef on failure.
+
+$request_method is optional, and if set this, you can change the HTTP 
+request method of fetching Yadis URL.
+See EXPORT to know the value you can set, and default is YR_HEAD.
 
 If this method returns undef, you can rely on the following errors
 codes (from $csr->B<errcode>) to decide what to present to the user:
@@ -386,7 +425,7 @@ It is same what could be got by discover method.
 =item $disc->B<identity_url>
 
 Returns Yadis URL.
-If not redirected, it is same with the argument of parse_uri method.
+If not redirected, it is same with the argument of discover method.
 
 =item $disc->B<xrd_url>
 

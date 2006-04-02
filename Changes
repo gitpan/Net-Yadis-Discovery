@@ -1,3 +1,8 @@
+0.03:
+        * Automatically judge whether LWPx::ParanoidAgent could use or not.
+        * Export three constat values to handle the way of HTTP request method of fetching
+          Yadis URL.
+
 0.02:
         * API interface change to prpposal API interface, making two changes showing below:
 

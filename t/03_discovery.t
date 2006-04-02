@@ -6,7 +6,7 @@ my $disc = Net::Yadis::Discovery->new();
 foreach (<DATA>) {
     my ($url,$final,$xrd) = split(/[\t\n]/,$_);
     next if ($xrd =~ /xrds_html$/);            # Not correspond for Yadis document's header is text/html case.
-    $disc->parse_uri($url);
+    $disc->discover($url);
     my $identity_url = $disc->identity_url;
     my $xrd_url = $disc->xrd_url;
     $identity_url =~ s/www\.openidenabled\.com\/resources/openidenabled.com/;
