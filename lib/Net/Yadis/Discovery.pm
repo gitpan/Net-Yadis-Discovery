@@ -3,7 +3,7 @@ package Net::Yadis::Discovery;
 use strict;
 use warnings;
 use vars qw($VERSION @EXPORT);
-$VERSION = "0.04";
+$VERSION = "0.05";
 
 use base qw(Exporter);
 use Carp ();
@@ -265,7 +265,7 @@ sub servers {
         push (@servers,map { $protocols{$key}->{objectclass} ? bless($_ , $protocols{$key}->{objectclass}) : $_ } grep {join(",",$_->Type) =~ /$regex/} $self->xrd_objects);
     }
 
-    @servers = $code_ref->($self,@servers) if ($code_ref);
+    @servers = $code_ref->(@servers) if ($code_ref);
 
     wantarray ? @servers : \@servers;
 }
@@ -348,7 +348,7 @@ Net::Yadis::Discovery - Perl extension for discovering Yadis document from Yadis
   my $xrd = $self->servers('openid'=>['1.0','1.1'],'typekey');
   # If you want to take only OpenID 1.0/1.1 and TypeKey servers.
 
-  my $xrd = $self->servers(sub{shift;($_[int(rand(@_))])});
+  my $xrd = $self->servers(sub{($_[int(rand(@_))])});
   # If you want to choose random server by code-ref.
 
 =head1 DESCRIPTION
@@ -502,10 +502,10 @@ Sample:
 If code reference is given as argument , you can make your own filter rule.
 code reference is executed at the last of filtering logic, like this:
 
-  @results = $code_ref->($disc,@temporary_results)
+  @results = $code_ref->(@temporary_results)
 
 Sample: If you want to filter OpenID server and get only first one:
-  ($openid_server) = $disc->servers("openid",sub{shift;$_[0]});
+  ($openid_server) = $disc->servers("openid",sub{$_[0]});
 
 =item $disc->B<err>
 

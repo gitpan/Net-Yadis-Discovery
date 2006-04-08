@@ -49,15 +49,15 @@ is (@arr,3);
 is (@arr,5);
 
 #Coderef test
-@arr = $disc->servers('openid','typekey',sub{shift;($_[0])});
+@arr = $disc->servers('openid','typekey',sub{($_[0])});
 is (@arr,1);
-@arr = $disc->servers('openid','typekey',sub{shift;@_});
+@arr = $disc->servers('openid','typekey',sub{@_});
 is (@arr,5);
 @arr = $disc->servers;
 is (@arr,7);
-@arr = $disc->servers(sub{shift;($_[int(rand(@_))])});
+@arr = $disc->servers(sub{($_[int(rand(@_))])});
 is (@arr,1);
-@arr = $disc->servers(sub{shift;@_});
+@arr = $disc->servers(sub{@_});
 is (@arr,7);
 
 #Delegate test on server method

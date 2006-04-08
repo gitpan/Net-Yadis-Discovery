@@ -1,3 +1,6 @@
+0.05:   * code_ref's arguments used in server method changes from including Net::Yadis::Discovery
+          object as first argument to not including it.
+
 0.04:   * Refactoring proposal API interface logic.
         * Add almighty filtering results method: servers
         * Add TypeKey support
