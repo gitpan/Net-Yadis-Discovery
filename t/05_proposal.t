@@ -1,4 +1,4 @@
-use Test::More tests => 9;
+use Test::More tests => 25;
 use Data::Dumper;
 BEGIN { use_ok('Net::Yadis::Discovery') };
 
@@ -10,22 +10,71 @@ foreach (<DATA>) { $buffer .= $_ }
 
 $disc->parse_xrd($buffer);
 
+#OpenID test
 my @arr = $disc->openid_servers;
 is (@arr,4);
-@arr = $disc->openid_servers('1.0');
+@arr = $disc->openid_servers(['1.0']);
 is (@arr,2);
-@arr = $disc->openid_servers('1.1');
+@arr = $disc->openid_servers(['1.1']);
 is (@arr,3);
 @arr = $disc->openid_servers(['1.0','1.1']);
 is (@arr,4);
+
+#Delegate test
+is ($arr[0]->Delegate,"http://myid.myopenid.com/");
+
+#LID test
 @arr = $disc->lid_servers;
 is (@arr,2);
-@arr = $disc->lid_servers('1.0');
+@arr = $disc->lid_servers(['1.0']);
 is (@arr,1);
-@arr = $disc->lid_servers('2.0');
+@arr = $disc->lid_servers(['2.0']);
 is (@arr,1);
 @arr = $disc->lid_servers(['1.0','2.0']);
 is (@arr,2);
+
+#TypeKey test
+@arr = $disc->typekey_servers;
+is (@arr,1);
+
+#MemberName test
+is ($arr[0]->MemberName,"myid");
+
+#Hybrid test
+@arr = $disc->servers('lid','typekey');
+is (@arr,3);
+@arr = $disc->servers('openid'=>['1.0'],'typekey');
+is (@arr,3);
+@arr = $disc->servers('openid'=>['1.1'],'lid');
+is (@arr,5);
+
+#Coderef test
+@arr = $disc->servers('openid','typekey',sub{shift;($_[0])});
+is (@arr,1);
+@arr = $disc->servers('openid','typekey',sub{shift;@_});
+is (@arr,5);
+@arr = $disc->servers;
+is (@arr,7);
+@arr = $disc->servers(sub{shift;($_[int(rand(@_))])});
+is (@arr,1);
+@arr = $disc->servers(sub{shift;@_});
+is (@arr,7);
+
+#Delegate test on server method
+is ($arr[0]->Delegate,"http://myid.myopenid.com/");
+
+#Error case
+my @err = (
+    ['Version',['1.0'],'openid'],
+    ['Version','openid',['1.0'],['1.0']],
+    ['No option',sub{},'openid'],
+    ['Unknown','poppenid'],
+);
+foreach my $err (@err){
+    my $reg = shift(@$err);
+    eval{@arr = $disc->servers(@$err);};
+    ok ($@ =~ /$reg/);
+}
 
 __END__
 <?xml version="1.0" encoding="UTF-8"?>

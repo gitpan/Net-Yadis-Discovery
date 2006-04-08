@@ -6,9 +6,13 @@ package Net::Yadis::Discovery;
 
 sub openid_servers { 
     my $self = shift;
-    my $regex = 'http://openid.net/signon/[version]';
-    my @ret = map { bless $_, 'Net::Yadis::Object::OpenID' } $self->search_protocol($regex,@_);
+#    my $ver = defined($_[0]) ? ref($_[0]) eq 'ARRAY' ? $_[0] : \@_ : [];
+    $self->servers('openid',@_);
 }
+
+sub openid_regex { 'http://openid.net/signon/\ver' }
+
+sub openid_objectclass { 'Net::Yadis::Object::OpenID' }
 
 package Net::Yadis::Object::OpenID;
 
@@ -23,7 +27,7 @@ __END__
 
 =head1 NAME
 
-Net::Yadis::Discovery::Protocol::OpenID - Extension module that add prpposal OpenID API to Net::Yadis::Discovery;
+Net::Yadis::Discovery::Protocol::OpenID - Extension module that add proposal OpenID API to Net::Yadis::Discovery;
 
 =head1 SYNOPSIS
 

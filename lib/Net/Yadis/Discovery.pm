@@ -3,7 +3,7 @@ package Net::Yadis::Discovery;
 use strict;
 use warnings;
 use vars qw($VERSION @EXPORT);
-$VERSION = "0.03";
+$VERSION = "0.04";
 
 use base qw(Exporter);
 use Carp ();
@@ -222,18 +222,52 @@ sub parse_xrd {
 
 sub _pack_array { wantarray ? ref($_[0]) eq 'ARRAY' ? @{$_[0]} : ($_[0]) : $_[0] }
 
-sub search_protocol {
+sub servers {
     my $self = shift;
-    my $prot_regex = shift;
-    my $version = shift;
-    return $self->_fail("not_discovered_yet") unless $self->xrd_objects;
+    my %protocols;
+    my $code_ref;
+    my $protocol = undef;
+    
+    Carp::croak("Not calling discover method yet") unless $self->xrd_objects;
 
-    my $ver_regex = $version ? '('.join('|',map { $_ =~ s/\./\\./g; $_ } _pack_array($version)).')' : '.+';
-    $prot_regex =~ s/\[version\]/$ver_regex/;
+    foreach my $option (@_) {
+        Carp::croak("No option allow after code reference option") if $code_ref;
+        my $ref = ref($option);
+        if ($ref eq 'CODE') {
+            $code_ref = $option;
+        } elsif ($ref eq 'ARRAY') {
+            Carp::croak("Version array option needs protocol name or URL") unless $protocol;
+            $protocols{$protocol}->{versionarray} = $option;
+            $protocol = undef;
+        } else {
+            my $default = {versionarray => []};
+            unless ($option =~ /^http/) {
+                my $method = "${option}_regex";
+                Carp::croak("Unknown protocol: $option") unless $self->can($method);
+                $default->{urlregex} = $self->$method;
+                $method = "${option}_objectclass";
+                $default->{objectclass} = $self->$method if $self->can($method);
+            }
 
-    my @search = grep {join(",",$_->Type) =~ /$prot_regex/} @{$self->xrd_objects};
+            $protocols{$option} = $default;
+            $protocol = $option;
+        }
+    }
 
-    return wantarray ? @search : \@search;
+    my @servers;
+    @servers = $self->xrd_objects if (keys %protocols == 0);
+    foreach my $key (keys %protocols) {
+        my $regex = $protocols{$key}->{urlregex} || $key; 
+        my @ver = @{$protocols{$key}->{versionarray}};
+        my $ver_regex = @ver ? '('.join('|',map { $_ =~ s/\./\\./g; $_ } @ver).')' : '.+' ;
+        $regex =~ s/\\ver/$ver_regex/;
+
+        push (@servers,map { $protocols{$key}->{objectclass} ? bless($_ , $protocols{$key}->{objectclass}) : $_ } grep {join(",",$_->Type) =~ /$regex/} $self->xrd_objects);
+    }
+
+    @servers = $code_ref->($self,@servers) if ($code_ref);
+
+    wantarray ? @servers : \@servers;
 }
 
 package Net::Yadis::Discovery::UA;
@@ -310,6 +344,12 @@ Net::Yadis::Discovery - Perl extension for discovering Yadis document from Yadis
     print $srv->extra_field("Delegate","http://openid.net/xmlns/1.0");
                                    # Extra field of some service
   }
+
+  my $xrd = $self->servers('openid'=>['1.0','1.1'],'typekey');
+  # If you want to take only OpenID 1.0/1.1 and TypeKey servers.
+
+  my $xrd = $self->servers(sub{shift;($_[int(rand(@_))])});
+  # If you want to choose random server by code-ref.
 
 =head1 DESCRIPTION
 
@@ -430,6 +470,42 @@ If not redirected, it is same with the argument of discover method.
 =item $disc->B<xrd_url>
 
 Returns Yadis Resource Descriptor URL.
+
+=item $disc->B<servers>($protocol,$protocol,...)
+
+=item $disc->B<servers>($protocol=>[$version1,$version2],...)
+
+=item $disc->B<servers>($protocol,....,$code_ref);
+
+Filter method of xrd_objects.
+
+If no opton is defined, returns same result with xrd_objects method.
+
+protocol names or Type URLs are given, filter only given protocol.
+Two or more protocols are given, return and results of filtering.
+
+Sample:
+  $disc->servers("openid","http://lid.netmesh.org/sso/1.0");
+
+If reference of version numbers array is given after protocol names,
+filter only given version of protocol.
+
+Sample:
+  $disc->servers("openid"=>['1.0','1.1'],"lid"=>['1.0']);
+
+If you want to use version numbers limitation with type URL, you can use 
+\ver as place holder of version number.
+
+Sample:
+  $disc->servers("http://lid.netmesh.org/sso/\ver"=>['1.0','2.0']);
+
+If code reference is given as argument , you can make your own filter rule.
+code reference is executed at the last of filtering logic, like this:
+
+  @results = $code_ref->($disc,@temporary_results)
+
+Sample: If you want to filter OpenID server and get only first one:
+  ($openid_server) = $disc->servers("openid",sub{shift;$_[0]});
 
 =item $disc->B<err>
 

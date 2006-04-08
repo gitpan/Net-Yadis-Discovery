@@ -4,18 +4,20 @@ sub import { }
 
 package Net::Yadis::Discovery;
 
-sub  lid_servers { 
+sub lid_servers { 
     my $self = shift;
-    my $regex = 'http://lid.netmesh.org/sso/[version]';
-    $self->search_protocol($regex,@_);
+#    my $ver = defined($_[0]) ? ref($_[0]) eq 'ARRAY' ? $_[0] : \@_ : [];
+    $self->servers('lid',@_);
 }
+
+sub lid_regex { 'http://lid.netmesh.org/sso/\ver' }
 
 1;
 __END__
 
 =head1 NAME
 
-Net::Yadis::Discovery::Protocol::LID - Extension module that add prpposal LID API to Net::Yadis::Discovery;
+Net::Yadis::Discovery::Protocol::LID - Extension module that add proposal LID API to Net::Yadis::Discovery;
 
 =head1 SYNOPSIS
 

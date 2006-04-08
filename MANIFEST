@@ -2,6 +2,7 @@ Changes
 lib/Net/Yadis/Discovery.pm
 lib/Net/Yadis/Discovery/Protocol/LID.pm
 lib/Net/Yadis/Discovery/Protocol/OpenID.pm
+lib/Net/Yadis/Discovery/Protocol/TypeKey.pm
 lib/Net/Yadis/Object.pm
 Makefile.PL
 MANIFEST
